@@ -1947,25 +1947,7 @@ body {
   font-family: var(--font-body);
   color: var(--text-muted);
   font-size: 13px;
-}
 
-.geo-sample-pill {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 3px 9px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.geo-sample-pill:hover {
-  background: var(--primary-light);
-  border-color: var(--primary);
-  color: var(--primary-dark);
-  transform: translateY(-1px);
-}
 
 /* IP Dossier Card */
 .ip-dossier-card {

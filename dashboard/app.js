@@ -2632,16 +2632,6 @@ function setupButtons() {
     }
   });
 
-  // Sample target pills
-  document.querySelectorAll(".geo-sample-pill").forEach(pill => {
-    pill.addEventListener("click", () => {
-      const ip = pill.dataset.ip;
-      const input = $("ip-tracker-input");
-      if (input) input.value = ip;
-      trackIpAddress(ip);
-    });
-  });
-
   $("dossier-btn-close")?.addEventListener("click", () => {
     const card = $("ip-dossier-card");
     if (card) card.style.display = "none";
