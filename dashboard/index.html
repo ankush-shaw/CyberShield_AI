@@ -10,7 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dashboard/vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="/dashboard/styles.css?v=2.9.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/dashboard/styles.css?v=2.9.2">
 </head>
 <body>
 
@@ -406,6 +407,15 @@
             <span>Track IP</span>
           </button>
         </div>
+        <div class="geo-quick-tags" style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">Sample Targets:</span>
+          <button type="button" class="geo-sample-pill" data-ip="185.220.101.5">🇩🇪 Frankfurt (Tor Node)</button>
+          <button type="button" class="geo-sample-pill" data-ip="194.26.29.112">🇷🇺 Moscow (Bulletproof VPS)</button>
+          <button type="button" class="geo-sample-pill" data-ip="218.92.0.198">🇨🇳 China (Brute-Force Bot)</button>
+          <button type="button" class="geo-sample-pill" data-ip="177.54.144.12">🇧🇷 São Paulo (Proxy)</button>
+          <button type="button" class="geo-sample-pill" data-ip="198.51.100.2">🇺🇸 USA (AWS Scanner)</button>
+          <button type="button" class="geo-sample-pill" data-ip="8.8.8.8">🌐 8.8.8.8 (Google DNS)</button>
+        </div>
 
         <!-- IP Dossier Card (Active Inspection) -->
         <div class="ip-dossier-card" id="ip-dossier-card" style="display:none">
@@ -475,10 +485,10 @@
             </div>
 
             <!-- Real Interactive World Map -->
-            <div id="real-geo-map" style="height:270px;width:100%;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);position:relative"></div>
+            <div id="real-geo-map" style="height:320px;width:100%;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);position:relative"></div>
 
             <!-- Tactical SVG Vector Map (Toggleable) -->
-            <div class="vector-map" id="vector-map-container" style="display:none;height:270px;position:relative">
+            <div class="vector-map" id="vector-map-container" style="display:none;height:320px;position:relative">
               <svg viewBox="0 0 800 360" fill="none" style="width:100%;height:100%" id="attack-svg">
                 <defs>
                   <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -982,6 +992,11 @@
 </div>
 
 <script src="/dashboard/vendor/leaflet/leaflet.js"></script>
-<script src="/dashboard/app.js?v=2.9.0"></script>
+<script>
+  if (typeof L === 'undefined') {
+    document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\\/script>');
+  }
+</script>
+<script src="/dashboard/app.js?v=2.9.2"></script>
 </body>
 </html>

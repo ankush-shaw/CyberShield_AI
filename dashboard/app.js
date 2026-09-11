@@ -1275,7 +1275,7 @@ function renderRealMapAttackers(sessionsArr, eventsArr) {
 
   const attackers = state.attackers || [];
   const itemsToRender = attackers.length > 0
-    ? attackers
+    ? [...attackers]
     : (sessionsArr || []).slice(0, 10).map((s, idx) => ({
         ip: s.source_ip || "127.0.0.1",
         geo: s.geo || { country_flag: "🌐", country: "Local Network", city: "Private Subnet", asn: "AS-PRIVATE", latitude: 0, longitude: 0 },
@@ -1284,15 +1284,28 @@ function renderRealMapAttackers(sessionsArr, eventsArr) {
         probed_services: [s.service || "honeypot"]
       }));
 
+  // Retain all searched IP targets across polling cycles
+  (state.searchedThreats || []).forEach(st => {
+    if (!itemsToRender.some(it => it.ip === st.ip)) {
+      itemsToRender.push({
+        ip: st.ip,
+        geo: st.geo,
+        max_risk_score: st.threatScore,
+        session_count: st.sessionCount,
+        probed_services: ["IP Tracking Target"]
+      });
+    }
+  });
+
   if (itemsToRender.length === 0) return;
 
   itemsToRender.forEach((item, idx) => {
     const geo = item.geo || {};
-    let lat = geo.latitude;
-    let lon = geo.longitude;
+    let lat = parseFloat(geo.latitude);
+    let lon = parseFloat(geo.longitude);
 
     // Handle local or unset coordinates with a distributed ring around the defense hub
-    if (!lat || !lon || (lat === 0 && lon === 0)) {
+    if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) {
       const angle = ((idx % 12) / 12) * 2 * Math.PI;
       lat = socCoords[0] + Math.sin(angle) * 7;
       lon = socCoords[1] + Math.cos(angle) * 11;
@@ -1364,6 +1377,135 @@ function renderRealMapAttackers(sessionsArr, eventsArr) {
       dashArray: "5, 8"
     }).addTo(state.leafletPaths);
   });
+}
+
+function plotSearchedIpOnMap(ip, geo, threatScore = 50, sessionCount = 0) {
+  if (!state.leafletMap) {
+    initRealMap();
+  }
+  if (!state.leafletMap) {
+    console.warn("Leaflet map is not initialized yet.");
+    return;
+  }
+
+  // Ensure persistent searched threats array
+  if (!state.searchedThreats) state.searchedThreats = [];
+  const existingIdx = state.searchedThreats.findIndex(s => s.ip === ip);
+  const threatRecord = { ip, geo, threatScore, sessionCount };
+  if (existingIdx >= 0) {
+    state.searchedThreats[existingIdx] = threatRecord;
+  } else {
+    state.searchedThreats.push(threatRecord);
+  }
+
+  // Automatically switch to Real Map view and refresh map size
+  const btnReal = $("btn-map-real");
+  const btnVector = $("btn-map-vector");
+  const mapReal = $("real-geo-map");
+  const mapVector = $("vector-map-container");
+  if (mapReal) {
+    mapReal.style.display = "block";
+    if (mapVector) mapVector.style.display = "none";
+    btnReal?.classList.add("active");
+    btnVector?.classList.remove("active");
+    state.leafletMap.invalidateSize();
+  }
+
+  // Resolve coordinates safely
+  let lat = parseFloat(geo?.latitude);
+  let lon = parseFloat(geo?.longitude);
+  if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) {
+    const hash = ip.split(".").reduce((acc, p) => acc + parseInt(p || "0", 10), 0);
+    const angle = ((hash % 12) / 12) * 2 * Math.PI;
+    lat = 28.6139 + Math.sin(angle) * 8;
+    lon = 77.2090 + Math.cos(angle) * 12;
+  }
+
+  const socCoords = [28.6139, 77.2090];
+  const risk = threatScore || 50;
+  const riskClass = risk >= 80 ? "risk-high" : (risk >= 50 ? "risk-amber" : "risk-low");
+  const riskBadgeClass = risk >= 80 ? "danger" : "warning";
+  const flag = geo?.country_flag || "🌐";
+  const city = geo?.city || "Unknown City";
+  const country = geo?.country || "Unknown Country";
+  const asn = geo?.asn || "AS-UNKNOWN";
+  const org = geo?.as_org || geo?.org || geo?.isp || "Network Provider";
+
+  // Remove existing marker for this IP to prevent duplicates
+  if (state.leafletMarkerMap?.[ip]) {
+    try {
+      state.leafletMarkers?.removeLayer(state.leafletMarkerMap[ip]);
+    } catch (e) {}
+  }
+
+  const markerIcon = L.divIcon({
+    className: "map-threat-div-icon",
+    html: `
+      <div class="map-marker-container ${riskClass}" title="${flag} ${ip} (${city}, ${country})">
+        <div class="map-threat-dot" style="box-shadow:0 0 16px rgba(194,75,75,0.9);transform:scale(1.2)">${flag}</div>
+        <div class="map-pulse-ring" style="border-width:3px"></div>
+      </div>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18]
+  });
+
+  const popupHtml = `
+    <div class="map-popup-card">
+      <div class="map-popup-header">
+        <span class="map-popup-ip">${flag} ${esc(ip)}</span>
+        <span class="map-popup-badge ${riskBadgeClass}">SCORE ${risk}/100</span>
+      </div>
+      <div class="map-popup-detail">
+        <span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted)">location_on</span>
+        <strong>${esc(city)}, ${esc(country)}</strong>
+      </div>
+      <div class="map-popup-detail">
+        <span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted)">pin_drop</span>
+        <span style="font-family:var(--font-mono);font-size:11px">${lat.toFixed(4)}, ${lon.toFixed(4)} (${esc(geo?.timezone || "UTC")})</span>
+      </div>
+      <div class="map-popup-detail">
+        <span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted)">lan</span>
+        <span>${esc(asn)} (${esc(org)})</span>
+      </div>
+      <div class="map-popup-detail">
+        <span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted)">security</span>
+        <span>${esc(geo?.threat_type || "External Ingress Footprint")}</span>
+      </div>
+      <div class="map-popup-actions">
+        <button class="map-popup-btn" onclick="focusAttackerInFeed('${esc(ip)}')">Focus Feed</button>
+        <button class="map-popup-btn" style="color:var(--rose)" onclick="blockIpPerimeter('${esc(ip)}')">Block IP</button>
+      </div>
+    </div>
+  `;
+
+  const marker = L.marker([lat, lon], { icon: markerIcon, title: ip, zIndexOffset: 999 });
+  marker.bindPopup(popupHtml);
+  marker.addTo(state.leafletMarkers);
+  if (!state.leafletMarkerMap) state.leafletMarkerMap = {};
+  state.leafletMarkerMap[ip] = marker;
+
+  // Add connecting attack trajectory line to SOC hub
+  const lineColor = risk >= 80 ? "#C24B4B" : (risk >= 50 ? "#C98A3C" : "#8B9A6E");
+  L.polyline([[lat, lon], socCoords], {
+    color: lineColor,
+    weight: 2.2,
+    opacity: 0.8,
+    dashArray: "4, 6"
+  }).addTo(state.leafletPaths);
+
+  // Smoothly fly camera to exact coordinates
+  state.leafletMap.invalidateSize();
+  state.leafletMap.flyTo([lat, lon], 7, {
+    duration: 1.2,
+    easeLinearity: 0.25
+  });
+
+  // Open popup
+  setTimeout(() => {
+    marker.openPopup();
+  }, 1250);
 }
 
 function projectGeoCoords(lat, lon, seed = 0) {
@@ -1602,12 +1744,8 @@ async function trackIpAddress(ip) {
       };
     }
 
-    // Smoothly fly real interactive map to adversary coordinates
-    if (state.leafletMap && geo.latitude && geo.longitude && !(geo.latitude === 0 && geo.longitude === 0)) {
-      state.leafletMap.flyTo([geo.latitude, geo.longitude], 6, { duration: 1.2 });
-      const m = state.leafletMarkerMap?.[cleanIp];
-      if (m) setTimeout(() => m.openPopup(), 1200);
-    }
+    // Dynamically plot marker at exact coordinates on real map & fly camera to it
+    plotSearchedIpOnMap(cleanIp, geo, threatScore, data.session_count || 0);
 
     card.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (err) {
@@ -2492,6 +2630,16 @@ function setupButtons() {
         trackIpAddress(input.value.trim());
       }
     }
+  });
+
+  // Sample target pills
+  document.querySelectorAll(".geo-sample-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      const ip = pill.dataset.ip;
+      const input = $("ip-tracker-input");
+      if (input) input.value = ip;
+      trackIpAddress(ip);
+    });
   });
 
   $("dossier-btn-close")?.addEventListener("click", () => {

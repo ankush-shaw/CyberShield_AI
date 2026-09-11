@@ -1949,6 +1949,24 @@ body {
   font-size: 13px;
 }
 
+.geo-sample-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.geo-sample-pill:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
 /* IP Dossier Card */
 .ip-dossier-card {
   background: var(--surface);
@@ -2205,6 +2223,14 @@ body {
   background: rgba(247, 242, 235, 0.85) !important;
   color: var(--text-muted) !important;
   border-top-left-radius: 4px;
+}
+
+/* Ensure Leaflet div-icon wrapper has zero background/border */
+.leaflet-div-icon,
+.map-threat-div-icon,
+.map-soc-div-icon {
+  background: transparent !important;
+  border: none !important;
 }
 
 /* Map Threat Marker & Beacon Pulse */
