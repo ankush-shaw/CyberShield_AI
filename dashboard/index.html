@@ -9,7 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/dashboard/styles.css?v=2.8.1">
+  <link rel="stylesheet" href="/dashboard/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/dashboard/styles.css?v=2.9.0">
 </head>
 <body>
 
@@ -456,10 +457,28 @@
         <div class="telemetry-grid">
           <div class="vector-map-area">
             <div class="vector-map-header">
-              <span class="vector-title">Global Adversary Coordinate Projection (Real-Time Lat/Long)</span>
-              <span class="vector-live">&#9679; Geolocation Live</span>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span class="vector-title">Global Adversary Coordinate Projection (Real-Time Lat/Long)</span>
+                <span class="vector-live">&#9679; Geolocation Live</span>
+              </div>
+              <div class="map-view-controls">
+                <button class="map-view-btn active" id="btn-map-real" title="Switch to interactive real world map">
+                  <span class="material-symbols-outlined" style="font-size:14px">public</span> Real Map
+                </button>
+                <button class="map-view-btn" id="btn-map-vector" title="Switch to tactical vector radar grid">
+                  <span class="material-symbols-outlined" style="font-size:14px">radar</span> Tactical Grid
+                </button>
+                <button class="map-view-btn sm" id="btn-map-fit" title="Fit map view to all active adversaries">
+                  <span class="material-symbols-outlined" style="font-size:14px">crop_free</span> Fit All
+                </button>
+              </div>
             </div>
-            <div class="vector-map" style="height:220px;position:relative">
+
+            <!-- Real Interactive World Map -->
+            <div id="real-geo-map" style="height:270px;width:100%;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);position:relative"></div>
+
+            <!-- Tactical SVG Vector Map (Toggleable) -->
+            <div class="vector-map" id="vector-map-container" style="display:none;height:270px;position:relative">
               <svg viewBox="0 0 800 360" fill="none" style="width:100%;height:100%" id="attack-svg">
                 <defs>
                   <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -962,6 +981,7 @@
   </div>
 </div>
 
-<script src="/dashboard/app.js?v=2.8.1"></script>
+<script src="/dashboard/vendor/leaflet/leaflet.js"></script>
+<script src="/dashboard/app.js?v=2.9.0"></script>
 </body>
 </html>

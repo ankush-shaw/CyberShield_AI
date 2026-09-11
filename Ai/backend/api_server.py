@@ -371,6 +371,15 @@ def create_app(
             DASHBOARD_ROOT / "app.js", media_type="application/javascript", headers=NO_CACHE_HEADERS
         )
 
+    @app.get("/dashboard/vendor/{file_path:path}", include_in_schema=False)
+    def dashboard_vendor(file_path: str) -> FileResponse:
+        vendor_dir = (DASHBOARD_ROOT / "vendor").resolve()
+        target = (vendor_dir / file_path).resolve()
+        if not str(target).startswith(str(vendor_dir)) or not target.is_file():
+            raise HTTPException(status_code=404, detail="Vendor asset not found")
+        media_type = "text/css" if file_path.endswith(".css") else ("application/javascript" if file_path.endswith(".js") else None)
+        return FileResponse(target, media_type=media_type)
+
     @app.post("/api/v1/logs")
     def ingest_log(request: LogEventRequest) -> Dict[str, Any]:
         try:

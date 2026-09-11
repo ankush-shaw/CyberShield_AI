@@ -1127,6 +1127,245 @@ function updateStatusUI(status) {
 // ============================================================
 // ATTACK ORIGIN VECTORS & GEOLOCATION PROJECTION
 // ============================================================
+window.focusAttackerInFeed = function(ip) {
+  const row = document.querySelector(`.geo-ip-link[data-ip="${ip}"]`);
+  if (row) {
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    const tr = row.closest("tr");
+    if (tr) {
+      tr.style.background = "var(--primary-light)";
+      setTimeout(() => { tr.style.background = ""; }, 2000);
+    }
+  }
+};
+
+window.blockIpPerimeter = async function(ip) {
+  if (!confirm(`Quarantine & block adversary IP ${ip} across perimeter firewall?`)) return;
+  try {
+    await api("/api/v1/honeypot/block-source", {
+      method: "POST",
+      body: JSON.stringify({ source_ip: ip })
+    });
+    toast(`Perimeter firewall rule active: Quarantined ${ip}`);
+    await loadTelemetryData();
+  } catch (err) {
+    toast(`Failed to block: ${err.message}`, true);
+  }
+};
+
+function initRealMap() {
+  if (typeof L === "undefined") {
+    console.warn("Leaflet library not loaded yet.");
+    return;
+  }
+  const container = $("real-geo-map");
+  if (!container || state.leafletMap) return;
+
+  try {
+    // Initialize Leaflet map with global center
+    state.leafletMap = L.map("real-geo-map", {
+      center: [25.0, 10.0],
+      zoom: 2,
+      minZoom: 1,
+      maxZoom: 18,
+      zoomControl: true,
+      scrollWheelZoom: true
+    });
+
+    // CartoDB Positron base tile layer (sage/warm alabaster aesthetic)
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 19
+    }).addTo(state.leafletMap);
+
+    state.leafletMarkers = L.layerGroup().addTo(state.leafletMap);
+    state.leafletPaths = L.layerGroup().addTo(state.leafletMap);
+    state.leafletMarkerMap = {};
+
+    renderRealMapAttackers(state.sessions, state.events);
+  } catch (err) {
+    console.error("Failed to initialize Leaflet real map:", err);
+  }
+}
+
+function setupMapViewControls() {
+  const btnReal = $("btn-map-real");
+  const btnVector = $("btn-map-vector");
+  const btnFit = $("btn-map-fit");
+  const mapReal = $("real-geo-map");
+  const mapVector = $("vector-map-container");
+
+  btnReal?.addEventListener("click", () => {
+    btnReal.classList.add("active");
+    btnVector?.classList.remove("active");
+    if (mapReal) mapReal.style.display = "block";
+    if (mapVector) mapVector.style.display = "none";
+    if (state.leafletMap) {
+      setTimeout(() => state.leafletMap.invalidateSize(), 150);
+    }
+  });
+
+  btnVector?.addEventListener("click", () => {
+    btnVector.classList.add("active");
+    btnReal?.classList.remove("active");
+    if (mapVector) mapVector.style.display = "block";
+    if (mapReal) mapReal.style.display = "none";
+  });
+
+  btnFit?.addEventListener("click", () => {
+    if (!state.leafletMap) return;
+    const markers = Object.values(state.leafletMarkerMap || {});
+    if (markers.length === 0) {
+      state.leafletMap.setView([25.0, 10.0], 2);
+      return;
+    }
+    const group = L.featureGroup(markers);
+    state.leafletMap.fitBounds(group.getBounds(), { padding: [40, 40], maxZoom: 7 });
+  });
+}
+
+function renderRealMapAttackers(sessionsArr, eventsArr) {
+  if (!state.leafletMap || !state.leafletMarkers || !state.leafletPaths) return;
+
+  state.leafletMarkers.clearLayers();
+  state.leafletPaths.clearLayers();
+  state.leafletMarkerMap = {};
+
+  // SOC Defense Command Hub coordinates
+  const socCoords = [28.6139, 77.2090]; // CyberShield SOC Defense Hub
+
+  const socIcon = L.divIcon({
+    className: "map-soc-div-icon",
+    html: `
+      <div class="map-soc-container" title="CyberShield SOC Autonomous Defense Grid">
+        <div class="map-soc-dot">
+          <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary)">shield</span>
+        </div>
+        <div class="map-soc-pulse"></div>
+      </div>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18]
+  });
+
+  L.marker(socCoords, { icon: socIcon, zIndexOffset: 1000 })
+    .bindPopup(`
+      <div class="map-popup-card">
+        <div class="map-popup-header">
+          <span class="map-popup-ip">🛡️ CyberShield SOC Command</span>
+          <span class="map-popup-badge" style="background:var(--primary-light);color:var(--primary-dark)">DEFENSE HUB</span>
+        </div>
+        <div class="map-popup-detail">
+          <span class="material-symbols-outlined" style="font-size:14px;color:var(--primary)">verified_user</span>
+          <span>Sentinel v2.5 Enterprise Mesh Active</span>
+        </div>
+        <div class="map-popup-detail">
+          <span class="material-symbols-outlined" style="font-size:14px;color:var(--primary)">sensors</span>
+          <span>5 / 5 Decoy Honeypots Listening</span>
+        </div>
+        <div class="map-popup-detail">
+          <span class="material-symbols-outlined" style="font-size:14px;color:var(--primary)">psychology</span>
+          <span>Adaptive Gemini Lure Engine Online</span>
+        </div>
+      </div>
+    `)
+    .addTo(state.leafletMarkers);
+
+  const attackers = state.attackers || [];
+  const itemsToRender = attackers.length > 0
+    ? attackers
+    : (sessionsArr || []).slice(0, 10).map((s, idx) => ({
+        ip: s.source_ip || "127.0.0.1",
+        geo: s.geo || { country_flag: "🌐", country: "Local Network", city: "Private Subnet", asn: "AS-PRIVATE", latitude: 0, longitude: 0 },
+        max_risk_score: s.risk_score || 50,
+        session_count: 1,
+        probed_services: [s.service || "honeypot"]
+      }));
+
+  if (itemsToRender.length === 0) return;
+
+  itemsToRender.forEach((item, idx) => {
+    const geo = item.geo || {};
+    let lat = geo.latitude;
+    let lon = geo.longitude;
+
+    // Handle local or unset coordinates with a distributed ring around the defense hub
+    if (!lat || !lon || (lat === 0 && lon === 0)) {
+      const angle = ((idx % 12) / 12) * 2 * Math.PI;
+      lat = socCoords[0] + Math.sin(angle) * 7;
+      lon = socCoords[1] + Math.cos(angle) * 11;
+    }
+
+    const risk = item.max_risk_score ?? 60;
+    const riskClass = risk >= 80 ? "risk-high" : (risk >= 50 ? "risk-amber" : "risk-low");
+    const riskBadgeClass = risk >= 80 ? "danger" : "warning";
+    const flag = geo.country_flag || "⚠️";
+    const city = geo.city || "Unknown City";
+    const country = geo.country || "Unknown Country";
+    const asn = geo.asn || "AS-UNKNOWN";
+    const services = (item.probed_services || ["ssh"]).map(s => s.toUpperCase()).join(", ");
+
+    const markerIcon = L.divIcon({
+      className: "map-threat-div-icon",
+      html: `
+        <div class="map-marker-container ${riskClass}" title="${flag} ${item.ip} (${city}, ${country})">
+          <div class="map-threat-dot">${flag}</div>
+          <div class="map-pulse-ring"></div>
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16]
+    });
+
+    const popupHtml = `
+      <div class="map-popup-card">
+        <div class="map-popup-header">
+          <span class="map-popup-ip">${flag} ${esc(item.ip)}</span>
+          <span class="map-popup-badge ${riskBadgeClass}">RISK ${risk}/100</span>
+        </div>
+        <div class="map-popup-detail">
+          <span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted)">location_on</span>
+          <strong>${esc(city)}, ${esc(country)}</strong>
+        </div>
+        <div class="map-popup-detail">
+          <span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted)">lan</span>
+          <span>${esc(asn)}</span>
+        </div>
+        ${item.threat_actor ? `
+        <div class="map-popup-detail" style="color:var(--rose);font-weight:600">
+          <span class="material-symbols-outlined" style="font-size:14px">warning</span>
+          <span>${esc(item.threat_actor)}</span>
+        </div>` : ""}
+        <div class="map-popup-detail">
+          <span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted)">target</span>
+          <span>Probing: ${esc(services)}</span>
+        </div>
+        <div class="map-popup-actions">
+          <button class="map-popup-btn" onclick="focusAttackerInFeed('${esc(item.ip)}')">Focus Table</button>
+          <button class="map-popup-btn" style="color:var(--rose)" onclick="blockIpPerimeter('${esc(item.ip)}')">Block IP</button>
+        </div>
+      </div>
+    `;
+
+    const marker = L.marker([lat, lon], { icon: markerIcon, title: item.ip });
+    marker.bindPopup(popupHtml);
+    marker.addTo(state.leafletMarkers);
+    state.leafletMarkerMap[item.ip] = marker;
+
+    // Attack trajectory arc/polyline to defense hub
+    const lineColor = risk >= 80 ? "#C24B4B" : (risk >= 50 ? "#C98A3C" : "#8B9A6E");
+    L.polyline([[lat, lon], socCoords], {
+      color: lineColor,
+      weight: 1.6,
+      opacity: 0.65,
+      dashArray: "5, 8"
+    }).addTo(state.leafletPaths);
+  });
+}
+
 function projectGeoCoords(lat, lon, seed = 0) {
   // SVG viewBox: 0 0 800 360, center SOC defense at (400, 180)
   let x, y;
@@ -1156,6 +1395,7 @@ function renderAttackVectors(sessionsArr, eventsArr) {
       <circle cx="400" cy="180" r="40" fill="none" stroke="#8B9A6E" stroke-dasharray="3 5" stroke-width="1.2" opacity="0.4"/>
       <text x="400" y="240" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#8c9680" letter-spacing="0.05em">PERIMETER CLEAR • 0 ADVERSARIES ENGAGED</text>
     `;
+    renderRealMapAttackers(sessionsArr, eventsArr);
     return;
   }
 
@@ -1217,6 +1457,9 @@ function renderAttackVectors(sessionsArr, eventsArr) {
       if (ip) trackIpAddress(ip);
     });
   });
+
+  // Also update real interactive map
+  renderRealMapAttackers(sessionsArr, eventsArr);
 }
 
 // ============================================================
@@ -1357,6 +1600,13 @@ async function trackIpAddress(ip) {
           toast("Block failed: " + err.message, true);
         }
       };
+    }
+
+    // Smoothly fly real interactive map to adversary coordinates
+    if (state.leafletMap && geo.latitude && geo.longitude && !(geo.latitude === 0 && geo.longitude === 0)) {
+      state.leafletMap.flyTo([geo.latitude, geo.longitude], 6, { duration: 1.2 });
+      const m = state.leafletMarkerMap?.[cleanIp];
+      if (m) setTimeout(() => m.openPopup(), 1200);
     }
 
     card.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -2624,6 +2874,8 @@ document.head.appendChild(style);
 // ============================================================
 async function init() {
   setupButtons();
+  initRealMap();
+  setupMapViewControls();
   await refresh();
   connectWebSocket();
   setInterval(refresh, 3000);
