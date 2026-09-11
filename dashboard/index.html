@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dashboard/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/dashboard/styles.css?v=2.9.4">
+  <link rel="stylesheet" href="/dashboard/styles.css?v=2.9.5">
 </head>
 <body>
 
@@ -458,28 +458,31 @@
         <div class="telemetry-grid">
           <div class="vector-map-area">
             <div class="vector-map-header">
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div class="vector-header-left">
                 <span class="vector-title">Global Adversary Coordinate Projection (Real-Time Lat/Long)</span>
                 <span class="vector-live">&#9679; Geolocation Live</span>
               </div>
               <div class="map-view-controls">
-                <button class="map-view-btn active" id="btn-map-real" title="Switch to interactive real world map">
-                  <span class="material-symbols-outlined" style="font-size:14px">public</span> Real Map
+                <button type="button" class="map-view-btn active" id="btn-map-real" title="Switch to interactive real world map">
+                  <span class="material-symbols-outlined" style="font-size:15px">public</span>
+                  <span>Real Map</span>
                 </button>
-                <button class="map-view-btn" id="btn-map-vector" title="Switch to tactical vector radar grid">
-                  <span class="material-symbols-outlined" style="font-size:14px">radar</span> Tactical Grid
+                <button type="button" class="map-view-btn" id="btn-map-vector" title="Switch to tactical vector radar grid">
+                  <span class="material-symbols-outlined" style="font-size:15px">radar</span>
+                  <span>Tactical Grid</span>
                 </button>
-                <button class="map-view-btn sm" id="btn-map-fit" title="Fit map view to all active adversaries">
-                  <span class="material-symbols-outlined" style="font-size:14px">crop_free</span> Fit All
+                <button type="button" class="map-view-btn sm" id="btn-map-fit" title="Fit map view to all active adversaries">
+                  <span class="material-symbols-outlined" style="font-size:15px">crop_free</span>
+                  <span>Fit All</span>
                 </button>
               </div>
             </div>
 
             <!-- Real Interactive World Map -->
-            <div id="real-geo-map" style="height:320px;width:100%;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);position:relative"></div>
+            <div id="real-geo-map" style="height:380px;width:100%;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);position:relative"></div>
 
             <!-- Tactical SVG Vector Map (Toggleable) -->
-            <div class="vector-map" id="vector-map-container" style="display:none;height:320px;position:relative">
+            <div class="vector-map" id="vector-map-container" style="display:none;height:380px;position:relative">
               <svg viewBox="0 0 800 360" fill="none" style="width:100%;height:100%" id="attack-svg">
                 <defs>
                   <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -988,6 +991,6 @@
     document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\\/script>');
   }
 </script>
-<script src="/dashboard/app.js?v=2.9.4"></script>
+<script src="/dashboard/app.js?v=2.9.5"></script>
 </body>
 </html>
